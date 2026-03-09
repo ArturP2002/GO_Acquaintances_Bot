@@ -1,0 +1,8 @@
+aiogram
+peewee
+python-dotenv
+pydantic
+pydantic-settings
+APScheduler
+openai
+replicate>=0.25.0
