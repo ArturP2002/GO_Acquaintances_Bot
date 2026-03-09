@@ -992,13 +992,18 @@ async def admin_backup_database(callback: CallbackQuery):
         shutil.copy2(db_path, backup_path)
         
         # Отправляем файл администратору
+        from aiogram.types import FSInputFile
+        
         bot = get_bot()
-        with open(backup_path, 'rb') as backup_file:
-            await bot.send_document(
-                chat_id=callback.from_user.id,
-                document=backup_file,
-                caption=f"💾 Бэкап базы данных\n\nДата создания: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nРазмер: {os.path.getsize(backup_path) / 1024 / 1024:.2f} MB"
-            )
+        
+        # Используем FSInputFile для отправки файла
+        document = FSInputFile(backup_path, filename=backup_filename)
+        
+        await bot.send_document(
+            chat_id=callback.from_user.id,
+            document=document,
+            caption=f"💾 Бэкап базы данных\n\nДата создания: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nРазмер: {os.path.getsize(backup_path) / 1024 / 1024:.2f} MB"
+        )
         
         # Удаляем временный файл
         try:
