@@ -458,7 +458,7 @@ async def handle_back_profile(callback: CallbackQuery):
             if callback.message.photo:
                 # Если сообщение уже содержит фото - редактируем caption и клавиатуру
                 try:
-                    caption_skipped = await safe_edit_caption(callback, profile_text, keyboard, user_id)
+                    caption_skipped = await safe_edit_caption(callback, profile_text, keyboard, user.id)
                     if caption_skipped:
                         return
                 except Exception:
@@ -469,7 +469,7 @@ async def handle_back_profile(callback: CallbackQuery):
                             callback,
                             InputMediaPhoto(media=photo_file_id, caption=profile_text),
                             keyboard,
-                            user_id
+                            user.id
                         )
                         if media_skipped:
                             return
@@ -489,7 +489,7 @@ async def handle_back_profile(callback: CallbackQuery):
                             callback,
                             InputMediaPhoto(media=photo_file_id, caption=profile_text),
                             keyboard,
-                            user_id
+                            user.id
                         )
                         if media_skipped:
                             return
@@ -517,7 +517,7 @@ async def handle_back_profile(callback: CallbackQuery):
                 )
             elif callback.message.text:
                 # Если текущее сообщение текстовое - редактируем текст
-                text_skipped = await safe_edit_text(callback, profile_text, keyboard, user_id)
+                text_skipped = await safe_edit_text(callback, profile_text, keyboard, user.id)
                 if text_skipped:
                     return
             else:
