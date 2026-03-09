@@ -357,7 +357,7 @@ async def handle_back_profile(callback: CallbackQuery):
         return
     
     try:
-        # Получаем текущую позицию в истории (максимальная позиция)
+        # Получаем максимальную позицию в истории
         max_position = profile_repo.get_current_position(user.id)
         
         # Если позиция <= 0, значит это первая анкета или истории нет
@@ -365,29 +365,56 @@ async def handle_back_profile(callback: CallbackQuery):
             await callback.answer("Это первая анкета в истории", show_alert=False)
             return
         
-        # Получаем предыдущий профиль из истории
-        # Используем max_position - 1, чтобы получить предпоследнюю анкету
-        # (последняя - это текущая, которую мы сейчас видим)
-        previous_position = max_position - 1
-        
-        # Если предыдущей позиции нет (мы на первой анкете)
-        if previous_position < 0:
-            await callback.answer("Это первая анкета в истории", show_alert=False)
-            return
-        
-        # Получаем профиль с предыдущей позицией, пропуская забаненных пользователей
+        # Получаем все записи истории для пользователя, отсортированные по позиции (от большей к меньшей)
         from database.models.like import ProfileHistory
         from database.models.user import User
         
+        # Получаем все записи истории, отсортированные по позиции (от большей к меньшей)
+        all_history = list(ProfileHistory.select().where(
+            ProfileHistory.user_id == user.id
+        ).order_by(ProfileHistory.position.desc()))
+        
+        if not all_history:
+            await callback.answer("В истории нет анкет", show_alert=False)
+            return
+        
+        # Находим текущий профиль - это самый последний (с максимальной позицией)
+        # Но нужно проверить, не забанен ли он
+        current_profile = None
+        current_position = None
+        
+        # Ищем первый незабаненный профиль с максимальной позицией (текущий)
+        for history_entry in all_history:
+            try:
+                candidate_profile = history_entry.profile
+                profile_user = User.get_by_id(candidate_profile.user_id)
+                if not profile_user.is_banned:
+                    current_profile = candidate_profile
+                    current_position = history_entry.position
+                    break
+            except (User.DoesNotExist, AttributeError):
+                continue
+        
+        # Если не нашли текущий профиль, значит все забанены
+        if current_profile is None or current_position is None:
+            await callback.answer("В истории нет доступных анкет", show_alert=False)
+            return
+        
+        # Если текущая позиция <= 0, значит это первая анкета
+        if current_position <= 0:
+            await callback.answer("Это первая анкета в истории", show_alert=False)
+            return
+        
+        # Ищем предыдущий незабаненный профиль
         previous_profile = None
-        found_position = previous_position
+        previous_position = current_position - 1
         
         # Ищем первый незабаненный профиль в истории, начиная с предыдущей позиции
-        while found_position >= 0:
+        while previous_position >= 0:
             try:
                 history_entry = ProfileHistory.get(
                     (ProfileHistory.user_id == user.id) &
-                    (ProfileHistory.position == found_position)
+                    (ProfileHistory.position == previous_position)
                 )
                 candidate_profile = history_entry.profile
                 
@@ -398,10 +425,10 @@ async def handle_back_profile(callback: CallbackQuery):
                     break
                 
                 # Если забанен, ищем дальше назад
-                found_position -= 1
-            except (ProfileHistory.DoesNotExist, User.DoesNotExist):
+                previous_position -= 1
+            except (ProfileHistory.DoesNotExist, User.DoesNotExist, AttributeError):
                 # Если запись не найдена, ищем дальше назад
-                found_position -= 1
+                previous_position -= 1
         
         # Если не нашли незабаненного профиля в истории
         if previous_profile is None:

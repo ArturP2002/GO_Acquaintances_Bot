@@ -346,6 +346,48 @@ class ProfileRepository:
         return -1
     
     @staticmethod
+    def get_profile_position(user_id: int, profile_id: int) -> Optional[int]:
+        """
+        Получает позицию профиля в истории для пользователя.
+        
+        Args:
+            user_id: ID пользователя
+            profile_id: ID профиля
+            
+        Returns:
+            Позиция профиля в истории или None если не найден
+        """
+        try:
+            history_entry = ProfileHistory.get(
+                (ProfileHistory.user_id == user_id) &
+                (ProfileHistory.profile_id == profile_id)
+            )
+            return history_entry.position
+        except ProfileHistory.DoesNotExist:
+            return None
+    
+    @staticmethod
+    def get_profile_at_position(user_id: int, position: int) -> Optional[Profile]:
+        """
+        Получает профиль на указанной позиции в истории.
+        
+        Args:
+            user_id: ID пользователя
+            position: Позиция в истории
+            
+        Returns:
+            Profile или None если не найден
+        """
+        try:
+            history_entry = ProfileHistory.get(
+                (ProfileHistory.user_id == user_id) &
+                (ProfileHistory.position == position)
+            )
+            return history_entry.profile
+        except ProfileHistory.DoesNotExist:
+            return None
+    
+    @staticmethod
     def get_previous_profile(user_id: int, current_position: int) -> Optional[Profile]:
         """
         Получает предыдущий профиль из истории (позиция - 1).
