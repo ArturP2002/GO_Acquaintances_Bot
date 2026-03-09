@@ -949,3 +949,66 @@ async def admin_stats(callback: CallbackQuery):
         reply_markup=get_admin_main_keyboard(user)
     )
     await callback.answer()
+
+
+@router.callback_query(F.data == "admin:backup", IsAdmin(role=AdminRole.ADMIN))
+async def admin_backup_database(callback: CallbackQuery):
+    """
+    Обработчик создания бэкапа базы данных.
+    Создает копию БД и отправляет файл администратору.
+    Доступ: admin и выше.
+    """
+    try:
+        # Получаем user из контекста или загружаем из БД
+        user = user_repo.get_by_telegram_id(callback.from_user.id)
+        
+        await callback.answer("⏳ Создание бэкапа...")
+        
+        import os
+        import shutil
+        from datetime import datetime
+        from config import config
+        from loader import get_bot
+        
+        # Получаем путь к базе данных (используем тот же способ, что и в loader.py)
+        db_path = config.DATABASE_PATH
+        if not os.path.isabs(db_path):
+            # Получаем корень проекта (3 уровня вверх от handlers/admin/admin_commands.py)
+            current_file = os.path.abspath(__file__)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+            db_path = os.path.join(project_root, db_path)
+        
+        # Проверяем существование файла БД
+        if not os.path.exists(db_path):
+            await callback.message.answer("❌ Файл базы данных не найден")
+            return
+        
+        # Создаем имя файла бэкапа с временной меткой
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"dating_bot_backup_{timestamp}.db"
+        backup_path = os.path.join(os.path.dirname(db_path), backup_filename)
+        
+        # Копируем базу данных
+        shutil.copy2(db_path, backup_path)
+        
+        # Отправляем файл администратору
+        bot = get_bot()
+        with open(backup_path, 'rb') as backup_file:
+            await bot.send_document(
+                chat_id=callback.from_user.id,
+                document=backup_file,
+                caption=f"💾 Бэкап базы данных\n\nДата создания: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nРазмер: {os.path.getsize(backup_path) / 1024 / 1024:.2f} MB"
+            )
+        
+        # Удаляем временный файл
+        try:
+            os.remove(backup_path)
+        except Exception as e:
+            logger.warning(f"Не удалось удалить временный файл бэкапа {backup_path}: {e}")
+        
+        await callback.message.answer("✅ Бэкап базы данных успешно создан и отправлен")
+        logger.info(f"Администратор {callback.from_user.id} создал бэкап базы данных")
+        
+    except Exception as e:
+        logger.error(f"Ошибка при создании бэкапа базы данных: {e}", exc_info=True)
+        await callback.message.answer("❌ Произошла ошибка при создании бэкапа")

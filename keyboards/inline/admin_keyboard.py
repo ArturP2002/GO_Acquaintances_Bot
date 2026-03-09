@@ -72,6 +72,15 @@ def get_admin_main_keyboard(user: Optional[User] = None) -> InlineKeyboardMarkup
         )
     ])
     
+    # Бэкап базы данных - только admin и выше
+    if user is None or can_manage_settings(user):
+        buttons.append([
+            InlineKeyboardButton(
+                text="💾 Бэкап БД",
+                callback_data="admin:backup"
+            )
+        ])
+    
     # Mini App - доступна всем администраторам
     # Получаем URL из конфига (по умолчанию http://localhost:3000)
     # Telegram требует только HTTPS для любых URL в кнопках

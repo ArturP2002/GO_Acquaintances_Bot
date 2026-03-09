@@ -262,6 +262,7 @@ class ProfileRepository:
         query_conditions = [
             (User.is_banned == False),
             (User.is_verified == True),
+            (User.is_active == True),  # Исключаем замороженные анкеты
             (Profile.age >= min_age),
             (Profile.age <= max_age),
             (Profile.user_id != user_id),

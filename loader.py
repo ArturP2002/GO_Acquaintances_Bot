@@ -146,6 +146,7 @@ def setup_scheduled_tasks(scheduler_instance: AsyncIOScheduler):
     from tasks.send_referral_reminders import send_referral_reminders_task
     from tasks.cleanup_moderation_queue import cleanup_moderation_queue_task
     from tasks.profile_boost_rotation import profile_boost_rotation_task
+    from tasks.freeze_inactive_profiles import freeze_inactive_profiles_task
     from services.notification_service import NotificationService
     from loader import get_bot
     
@@ -229,6 +230,17 @@ def setup_scheduled_tasks(scheduler_instance: AsyncIOScheduler):
         replace_existing=True
     )
     logger.info("Задача очистки кэша настроена (каждый час)")
+    
+    # Заморозка неактивных анкет - ежедневно в 03:00 UTC
+    scheduler_instance.add_job(
+        freeze_inactive_profiles_task,
+        'cron',
+        hour=3,
+        minute=0,
+        id='freeze_inactive_profiles',
+        replace_existing=True
+    )
+    logger.info("Задача заморозки неактивных анкет настроена (ежедневно в 03:00)")
     
     logger.info("Все периодические задачи успешно настроены")
 

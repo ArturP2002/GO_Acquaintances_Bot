@@ -175,6 +175,8 @@ git commit -m "Initial commit: Telegram dating bot with admin panel"
 
 ```bash
 # Добавление remote репозитория (замените URL на ваш)
+git remote add origin https://github.com/ArturP2002/GO_Acquaintances_Bot.git
+
 git remote add origin https://github.com/your-username/GO_Acquaintances_Bot.git
 
 # Или если используете SSH:

@@ -6,12 +6,14 @@ from tasks.reset_likes import reset_likes_task
 from tasks.send_referral_reminders import send_referral_reminders_task
 from tasks.cleanup_moderation_queue import cleanup_moderation_queue_task
 from tasks.profile_boost_rotation import profile_boost_rotation_task
+from tasks.freeze_inactive_profiles import freeze_inactive_profiles_task
 
 __all__ = [
     "reset_likes_task",
     "send_referral_reminders_task",
     "cleanup_moderation_queue_task",
     "profile_boost_rotation_task",
+    "freeze_inactive_profiles_task",
     "register_all_tasks",
 ]
 

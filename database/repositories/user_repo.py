@@ -66,6 +66,7 @@ class UserRepository:
     def update_last_active(user_id: int) -> bool:
         """
         Обновляет время последней активности пользователя.
+        Автоматически размораживает анкету, если она была заморожена.
         
         Args:
             user_id: ID пользователя
@@ -76,6 +77,11 @@ class UserRepository:
         try:
             user = User.get_by_id(user_id)
             user.last_active = datetime.now()
+            
+            # Автоматически размораживаем анкету при активности
+            if not user.is_active and not user.is_banned:
+                user.is_active = True
+            
             user.save()
             return True
         except User.DoesNotExist:

@@ -125,6 +125,8 @@ apt install -y certbot python3-certbot-nginx
 cd ~
 
 # Клонирование репозитория (замените на ваш репозиторий)
+git clone https://github.com/ArturP2002/GO_Acquaintances_Bot.git
+
 git clone https://github.com/your-username/GO_Acquaintances_Bot.git
 # Или загрузите проект через scp/sftp
 
@@ -414,6 +416,8 @@ sudo systemctl reload nginx
 # Получение сертификата (замените на ваш домен и email)
 sudo certbot --nginx -d your-domain.com -d www.your-domain.com --email your-email@example.com --agree-tos --non-interactive
 
+sudo certbot --nginx -d goznakomstva.tw1.ru -d www.goznakomstva.tw1.ru --email aprorasov@gmail.com --agree-tos --non-interactive
+
 # Автоматическое обновление сертификатов
 sudo certbot renew --dry-run
 ```
@@ -633,6 +637,200 @@ echo "Обновление завершено!"
 ```bash
 chmod +x ~/update-bot.sh
 ```
+
+### 9.3 Подробная инструкция по обновлению файлов через GitHub
+
+#### Вариант 1: Обновление всего проекта
+
+Если вы обновили код на GitHub и хотите загрузить все изменения на сервер:
+
+```bash
+# 1. Подключитесь к серверу по SSH
+ssh botuser@YOUR_SERVER_IP
+
+# 2. Перейдите в директорию проекта
+cd ~/GO_Acquaintances_Bot
+
+# 3. Остановите сервисы (чтобы избежать ошибок при обновлении)
+sudo systemctl stop dating-bot.service
+sudo systemctl stop dating-bot-backend.service
+
+# 4. Сохраните текущие изменения (если есть локальные правки)
+git stash
+
+# 5. Получите последние изменения с GitHub
+git fetch origin
+
+# 6. Обновите код (замените main на вашу ветку, если используете другую)
+git pull origin main
+
+# 7. Если были конфликты, разрешите их вручную
+# git status  # проверьте статус
+# git merge --abort  # если нужно отменить слияние
+
+# 8. Обновите зависимости Python (если изменились requirements.txt)
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -r admin_panel/mini_app/backend/requirements.txt
+
+# 9. Обновите зависимости фронтенда (если изменился package.json)
+cd admin_panel/mini_app/frontend
+npm install
+npm run build
+cd ~/GO_Acquaintances_Bot
+
+# 10. Запустите сервисы
+sudo systemctl start dating-bot-backend.service
+sudo systemctl start dating-bot.service
+
+# 11. Проверьте статус
+sudo systemctl status dating-bot.service --no-pager
+sudo systemctl status dating-bot-backend.service --no-pager
+
+# 12. Проверьте логи на наличие ошибок
+sudo journalctl -u dating-bot.service -n 50
+sudo journalctl -u dating-bot-backend.service -n 50
+```
+
+#### Вариант 2: Обновление конкретного файла
+
+Если вы обновили только один файл на GitHub и хотите загрузить только его:
+
+```bash
+# 1. Подключитесь к серверу
+ssh botuser@YOUR_SERVER_IP
+
+# 2. Перейдите в директорию проекта
+cd ~/GO_Acquaintances_Bot
+
+# 3. Остановите сервисы
+sudo systemctl stop dating-bot.service
+sudo systemctl stop dating-bot-backend.service
+
+# 4. Получите конкретный файл с GitHub
+# Например, если обновили main.py:
+git fetch origin
+git checkout origin/main -- main.py
+
+# Или для файла в поддиректории:
+git checkout origin/main -- handlers/user/browse_profiles.py
+
+# 5. Если обновили конфигурационные файлы, проверьте их
+# Например, если обновили config.py:
+# nano config.py  # проверьте настройки
+
+# 6. Запустите сервисы
+sudo systemctl start dating-bot-backend.service
+sudo systemctl start dating-bot.service
+
+# 7. Проверьте статус и логи
+sudo systemctl status dating-bot.service --no-pager
+```
+
+#### Вариант 3: Принудительное обновление (перезапись локальных изменений)
+
+⚠️ **Внимание**: Этот метод удалит все локальные изменения на сервере!
+
+```bash
+# 1. Подключитесь к серверу
+ssh botuser@YOUR_SERVER_IP
+
+# 2. Перейдите в директорию проекта
+cd ~/GO_Acquaintances_Bot
+
+# 3. Остановите сервисы
+sudo systemctl stop dating-bot.service
+sudo systemctl stop dating-bot-backend.service
+
+# 4. Сохраните резервную копию (рекомендуется)
+cp -r ~/GO_Acquaintances_Bot ~/GO_Acquaintances_Bot.backup
+
+# 5. Сбросьте все локальные изменения и получите версию с GitHub
+git fetch origin
+git reset --hard origin/main
+
+# 6. Обновите зависимости
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -r admin_panel/mini_app/backend/requirements.txt
+
+cd admin_panel/mini_app/frontend
+npm install
+npm run build
+cd ~/GO_Acquaintances_Bot
+
+# 7. Восстановите файл .env (если он был перезаписан)
+# Если .env был удален, создайте его заново:
+# nano .env
+# Добавьте необходимые переменные окружения
+
+# 8. Запустите сервисы
+sudo systemctl start dating-bot-backend.service
+sudo systemctl start dating-bot.service
+
+# 9. Проверьте статус
+sudo systemctl status dating-bot.service --no-pager
+```
+
+#### Вариант 4: Обновление через веб-интерфейс GitHub (без SSH)
+
+Если у вас нет прямого доступа к серверу, но есть доступ к GitHub:
+
+1. **Обновите файлы на GitHub:**
+   - Зайдите в репозиторий на GitHub
+   - Отредактируйте нужные файлы через веб-интерфейс
+   - Создайте коммит и push
+
+2. **На сервере выполните:**
+   ```bash
+   # Через SSH или через панель управления сервером
+   cd ~/GO_Acquaintances_Bot
+   sudo systemctl stop dating-bot.service
+   sudo systemctl stop dating-bot-backend.service
+   git pull origin main
+   sudo systemctl start dating-bot-backend.service
+   sudo systemctl start dating-bot.service
+   ```
+
+#### Полезные команды Git для работы с обновлениями
+
+```bash
+# Проверить статус репозитория
+git status
+
+# Посмотреть последние коммиты
+git log --oneline -10
+
+# Посмотреть различия между локальной и удаленной версией
+git diff origin/main
+
+# Отменить локальные изменения в конкретном файле
+git checkout -- filename.py
+
+# Посмотреть, какие файлы изменились
+git diff --name-only origin/main
+
+# Создать резервную копию перед обновлением
+git branch backup-$(date +%Y%m%d-%H%M%S)
+```
+
+#### Автоматическое обновление через cron (опционально)
+
+Для автоматического обновления каждую ночь:
+
+```bash
+# Откройте crontab
+crontab -e
+
+# Добавьте строку (обновление в 3:00 ночи каждый день)
+0 3 * * * cd ~/GO_Acquaintances_Bot && git pull origin main && sudo systemctl restart dating-bot.service dating-bot-backend.service
+```
+
+⚠️ **Рекомендации:**
+- Всегда делайте резервную копию перед обновлением
+- Проверяйте логи после обновления
+- Тестируйте изменения на тестовом сервере перед применением на продакшене
+- Сохраняйте файл `.env` отдельно, чтобы он не был перезаписан
 
 ---
 
