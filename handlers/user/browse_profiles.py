@@ -125,6 +125,45 @@ async def show_next_profile_message(message: Message, user_id: int, state: FSMCo
         await message.answer("❌ Произошла ошибка при загрузке анкеты")
 
 
+async def show_next_profile(callback: CallbackQuery, user_id: int):
+    """
+    Обёртка для совместимости со старым кодом.
+    Показывает следующую анкету через CallbackQuery.
+    
+    Args:
+        callback: CallbackQuery объект
+        user_id: ID пользователя в БД (не telegram_id)
+    """
+    from aiogram.fsm.context import FSMContext
+    from loader import get_dispatcher
+    
+    try:
+        # Получаем storage из диспетчера, чтобы состояние сохранялось
+        dispatcher = get_dispatcher()
+        storage = getattr(dispatcher, 'storage', None)
+        
+        if storage is None:
+            # Если storage не установлен, создаем временный MemoryStorage
+            from aiogram.fsm.storage.memory import MemoryStorage
+            storage = MemoryStorage()
+    except Exception:
+        # Если не удалось получить dispatcher, используем временный storage
+        from aiogram.fsm.storage.memory import MemoryStorage
+        storage = MemoryStorage()
+    
+    # Создаем ключ для FSM context используя resolve_address
+    key = storage.resolve_address(
+        chat=callback.message.chat.id,
+        user=callback.message.from_user.id
+    )
+    
+    # Создаем FSM context
+    state = FSMContext(storage=storage, key=key)
+    
+    # Вызываем основную функцию с message из callback
+    await show_next_profile_message(callback.message, user_id, state)
+
+
 async def show_previous_profile_message(message: Message, user_id: int, state: FSMContext):
     """
     Показывает предыдущую анкету из истории просмотров через message.
