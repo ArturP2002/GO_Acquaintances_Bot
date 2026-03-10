@@ -158,14 +158,17 @@ def get_user_actions_keyboard(user_id: int, user: Optional[User] = None) -> Inli
                 callback_data=f"admin:boost:{user_id}"
             )
         )
-        admin_buttons.append(
+    if admin_buttons:
+        buttons.append(admin_buttons)
+    
+    # Кнопка уменьшения буста на отдельной строке
+    if user is None or can_add_boost(user):
+        buttons.append([
             InlineKeyboardButton(
                 text="⬇️ Уменьшить буст",
                 callback_data=f"admin:reduce_boost:{user_id}"
             )
-        )
-    if admin_buttons:
-        buttons.append(admin_buttons)
+        ])
     
     # Назад - доступен всем
     buttons.append([
