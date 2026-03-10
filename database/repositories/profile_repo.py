@@ -233,6 +233,7 @@ class ProfileRepository:
         Получает кандидатов для показа пользователю.
         Исключает: себя, просмотренные, лайкнутые, забаненных, неподтвержденных.
         Если включен фильтр по полу, показывает только противоположный пол.
+        Если у пользователя указан город, показывает только кандидатов из того же города.
         
         Args:
             user_id: ID пользователя
@@ -246,7 +247,7 @@ class ProfileRepository:
         from database.models.like import Like
         from database.models.user import User
         
-        # Получаем профиль пользователя для проверки фильтра по полу
+        # Получаем профиль пользователя для проверки фильтра по полу и городу
         user_profile = ProfileRepository.get_by_user_id(user_id)
         
         # Подзапросы для исключения
@@ -269,6 +270,12 @@ class ProfileRepository:
             ~(Profile.id.in_(viewed_profiles)),
             ~(Profile.user_id.in_(liked_profiles))
         ]
+        
+        # Добавляем фильтр по городу, если у пользователя указан город
+        if user_profile and user_profile.city:
+            # Показываем только кандидатов из того же города
+            # Кандидаты без указанного города не показываются
+            query_conditions.append(Profile.city == user_profile.city)
         
         # Добавляем фильтр по противоположному полу, если включен
         if user_profile and user_profile.filter_by_opposite_gender:

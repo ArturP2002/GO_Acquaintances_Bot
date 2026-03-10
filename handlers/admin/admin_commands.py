@@ -612,6 +612,40 @@ async def admin_add_boost(callback: CallbackQuery, user=None):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
+@router.callback_query(F.data.startswith("admin:reduce_boost:"), IsAdmin(role=AdminRole.ADMIN))
+async def admin_reduce_boost(callback: CallbackQuery, user=None):
+    """Обработчик уменьшения буста пользователю. Доступ: admin и выше."""
+    try:
+        if not user:
+            user = user_repo.get_by_telegram_id(callback.from_user.id)
+        
+        user_id = int(callback.data.split(":")[-1])
+        target_user = user_repo.get_by_id(user_id)
+        
+        if not target_user:
+            await callback.answer("❌ Пользователь не найден", show_alert=True)
+            return
+        
+        # Добавляем отрицательный буст на 7 дней (уменьшает приоритет)
+        from datetime import datetime, timedelta
+        expires_at = datetime.now() + timedelta(days=7)
+        boost = BoostService.add_boost(user_id, boost_value=-3, expires_at=expires_at)
+        
+        await callback.answer("✅ Буст уменьшен (7 дней)")
+        if callback.message.reply_markup:
+            try:
+                await callback.message.edit_reply_markup(reply_markup=get_user_actions_keyboard(user_id, user))
+            except TelegramBadRequest as e:
+                # Игнорируем ошибку, если клавиатура не изменилась
+                if "message is not modified" not in str(e).lower():
+                    raise
+        logger.info(f"Администратор {callback.from_user.id} уменьшил буст пользователю {user_id}")
+            
+    except Exception as e:
+        logger.error(f"Ошибка при уменьшении буста: {e}", exc_info=True)
+        await callback.answer("❌ Произошла ошибка", show_alert=True)
+
+
 @router.callback_query(F.data.startswith("admin:view_profile:"), IsAdmin())
 async def admin_view_profile(callback: CallbackQuery):
     """Обработчик просмотра профиля пользователя. Доступ: все администраторы."""
