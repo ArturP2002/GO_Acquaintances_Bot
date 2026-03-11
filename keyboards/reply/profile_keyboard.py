@@ -10,7 +10,7 @@ def get_profile_reply_keyboard() -> ReplyKeyboardMarkup:
     Создает reply-клавиатуру для просмотра анкеты с эмодзи-кнопками.
     
     Returns:
-        ReplyKeyboardMarkup: Клавиатура с кнопками действий (❤️, 👎, ↩, 🚨)
+        ReplyKeyboardMarkup: Клавиатура с кнопками действий (❤️, 👎, ↩, 🚨, 💤)
     """
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
@@ -21,6 +21,9 @@ def get_profile_reply_keyboard() -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text="↩"),
                 KeyboardButton(text="🚨")
+            ],
+            [
+                KeyboardButton(text="💤")
             ]
         ],
         resize_keyboard=True,

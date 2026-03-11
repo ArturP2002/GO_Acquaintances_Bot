@@ -542,3 +542,118 @@ async def handle_start_browsing(message: Message, state: FSMContext, user=None):
         return
     
     await show_next_profile_message(message, user.id, state)
+
+
+@router.message(F.text == "💤", BrowsingState.viewing_profile)
+async def handle_back_to_main_menu(message: Message, state: FSMContext, user=None):
+    """
+    Обработчик кнопки "💤" для возврата в главное меню.
+    Аналогичен команде /start - возвращает пользователя в главное меню.
+    
+    Args:
+        message: Message объект
+        state: FSM контекст
+        user: Пользователь из контекста
+    """
+    # Очищаем состояние FSM
+    await state.clear()
+    
+    # Получаем пользователя из БД, если не пришел из контекста
+    if not user:
+        user = user_repo.get_by_telegram_id(message.from_user.id)
+        if not user:
+            await message.answer("❌ Пользователь не найден")
+            logger.error(f"Пользователь не найден в контексте и БД для возврата в главное меню")
+            return
+    
+    # Обновление времени последней активности
+    user_repo.update_last_active(user.id)
+    
+    # Обновление username, если он изменился
+    username = message.from_user.username
+    if user.username != username:
+        user.username = username
+        user.save()
+    
+    # Проверка, является ли пользователь администратором
+    from utils.admin_roles import get_user_role
+    from core.constants import AdminRole
+    from keyboards.inline.admin_keyboard import get_admin_main_keyboard
+    
+    user_role = get_user_role(user)
+    is_admin = user_role is not None
+    
+    if is_admin:
+        # Показываем админ-панель для всех администраторов
+        role_emojis = {
+            AdminRole.OWNER: "👑",
+            AdminRole.ADMIN: "🛡️",
+            AdminRole.MODERATOR: "🔨",
+            AdminRole.SUPPORT: "💬"
+        }
+        role_names = {
+            AdminRole.OWNER: "Панель владельца",
+            AdminRole.ADMIN: "Админ-панель",
+            AdminRole.MODERATOR: "Панель модератора",
+            AdminRole.SUPPORT: "Панель поддержки"
+        }
+        
+        emoji = role_emojis.get(user_role, "👤")
+        role_name = role_names.get(user_role, "Админ-панель")
+        
+        admin_text = (
+            f"{emoji} {role_name}\n\n"
+            f"Роль: {user_role.upper()}\n\n"
+            "Выберите раздел для управления:"
+        )
+        
+        await message.answer(
+            admin_text,
+            reply_markup=get_admin_main_keyboard(user)
+        )
+        logger.info(f"Администратор {message.from_user.id} (роль: {user_role}) открыл панель через кнопку 💤")
+        return
+    
+    # Проверяем, забанен ли пользователь (только для не-администраторов)
+    if not is_admin and user.is_banned:
+        await message.answer(
+            "🚫 Вы были заблокированы. Обратитесь к администратору."
+        )
+        logger.info(f"Забаненный пользователь {message.from_user.id} попытался вернуться в меню")
+        return
+    
+    profile = profile_repo.get_by_user_id(user.id)
+    
+    if profile:
+        # Проверяем, прошел ли пользователь модерацию
+        if user.is_verified:
+            # Пользователь зарегистрирован и верифицирован - показываем главное меню
+            from keyboards.reply.main_menu import get_main_menu_keyboard
+            await message.answer(
+                "👋 Добро пожаловать обратно!\n\n"
+                "Выберите действие из меню:",
+                reply_markup=get_main_menu_keyboard()
+            )
+            logger.info(f"Пользователь {message.from_user.id} вернулся в главное меню через кнопку 💤")
+        else:
+            # Пользователь зарегистрирован, но не прошел модерацию
+            await message.answer(
+                "⏳ Ваша анкета находится на модерации.\n\n"
+                "Пожалуйста, дождитесь проверки модератором. "
+                "Вы получите уведомление, когда ваша анкета будет одобрена."
+            )
+            logger.info(f"Пользователь {message.from_user.id} вернулся в меню (зарегистрирован, но не верифицирован)")
+    else:
+        # Пользователь не зарегистрирован - предлагаем регистрацию
+        from keyboards.reply.main_menu import get_registration_menu_keyboard
+        welcome_text = (
+            "👋 Привет! Добро пожаловать в бот знакомств!\n\n"
+            "Здесь ты сможешь найти интересных людей и завести новые знакомства.\n\n"
+            "Для начала работы нужно пройти регистрацию. Следуй инструкциям бота!"
+        )
+        
+        await message.answer(
+            welcome_text,
+            reply_markup=get_registration_menu_keyboard()
+        )
+        logger.info(f"Пользователь {message.from_user.id} вернулся в меню (не зарегистрирован)")
