@@ -57,13 +57,8 @@ async def show_next_profile_message(message: Message, user_id: int, state: FSMCo
             max_age=max_age
         )
         
-        # Если анкет нет
+        # Если анкет нет (включая просмотренные)
         if not next_profile:
-            await message.answer(
-                "😔 Пока нет новых анкет\n\n"
-                "Попробуйте позже или измените настройки поиска.",
-                reply_markup=None
-            )
             await state.clear()
             return
         

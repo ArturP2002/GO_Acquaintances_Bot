@@ -131,12 +131,16 @@ class MatchingService:
         1. Получение boost_frequency из Settings
         2. Подсчет просмотренных профилей пользователя
         3. Проверка, нужно ли показать буст-анкету (каждые N анкет)
-        4. Получение 100 кандидатов через get_candidates()
-        5. Если нужно показать буст - фильтрация кандидатов с boost > 0
-        6. Если кандидатов нет - возврат None
-        7. Для каждого кандидата расчет score через calculate_score()
-        8. Сортировка по score (по убыванию)
-        9. Возврат профиля с наивысшим score
+        4. Получение непросмотренных кандидатов через get_candidates()
+        5. Если непросмотренных нет:
+           - Получить время последнего просмотра
+           - Получить новые просмотренные анкеты (созданные/обновленные после последнего просмотра)
+           - Если новых нет - получить все просмотренные анкеты
+        6. Если нужно показать буст - фильтрация кандидатов с boost > 0
+        7. Если кандидатов нет - возврат None
+        8. Для каждого кандидата расчет score через calculate_score()
+        9. Сортировка по score (по убыванию)
+        10. Возврат профиля с наивысшим score
         
         Args:
             user_id: ID пользователя
@@ -165,10 +169,36 @@ class MatchingService:
             profiles_viewed_count % boost_frequency == 0
         )
         
-        # 4. Получение кандидатов
+        # 4. Получение непросмотренных кандидатов
         candidates = MatchingService.get_candidates(user_id, min_age, max_age)
         
-        # 5. Если нужно показать буст - фильтрация кандидатов с boost > 0
+        # 5. Если непросмотренных нет - получаем просмотренные
+        if not candidates:
+            # Получаем время последнего просмотра
+            last_view_time = ProfileRepository.get_last_view_time(user_id)
+            
+            # Сначала пытаемся получить новые просмотренные анкеты
+            if last_view_time is not None:
+                candidates = ProfileRepository.get_candidates_for_user(
+                    user_id=user_id,
+                    min_age=min_age,
+                    max_age=max_age,
+                    limit=100,
+                    include_viewed=True,
+                    new_after=last_view_time
+                )
+            
+            # Если новых просмотренных нет - получаем все просмотренные
+            if not candidates:
+                candidates = ProfileRepository.get_candidates_for_user(
+                    user_id=user_id,
+                    min_age=min_age,
+                    max_age=max_age,
+                    limit=100,
+                    include_viewed=True
+                )
+        
+        # 6. Если нужно показать буст - фильтрация кандидатов с boost > 0
         if should_show_boost:
             boosted_candidates = []
             for profile in candidates:
@@ -180,19 +210,19 @@ class MatchingService:
             if boosted_candidates:
                 candidates = boosted_candidates
         
-        # 6. Если кандидатов нет - возврат None
+        # 7. Если кандидатов нет - возврат None
         if not candidates:
             return None
         
-        # 7. Расчет score для каждого кандидата
+        # 8. Расчет score для каждого кандидата
         candidates_with_scores = []
         for profile in candidates:
             score = MatchingService.calculate_score(profile)
             candidates_with_scores.append((profile, score))
         
-        # 8. Сортировка по score (по убыванию)
+        # 9. Сортировка по score (по убыванию)
         candidates_with_scores.sort(key=lambda x: x[1], reverse=True)
         
-        # 9. Возврат профиля с наивысшим score
+        # 10. Возврат профиля с наивысшим score
         best_profile, _ = candidates_with_scores[0]
         return best_profile

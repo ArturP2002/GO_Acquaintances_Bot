@@ -6,6 +6,7 @@ from aiogram import Router
 from handlers.admin.admin_commands import router as admin_commands_router
 from handlers.admin.admin_users import router as admin_users_router
 from handlers.admin.ai_moderation import router as ai_moderation_router
+from handlers.admin.advertisement_handlers import router as advertisement_handlers_router
 
 # Создание основного роутера для администраторов
 admin_router = Router()
@@ -14,3 +15,4 @@ admin_router = Router()
 admin_router.include_router(admin_commands_router)
 admin_router.include_router(admin_users_router)
 admin_router.include_router(ai_moderation_router)
+admin_router.include_router(advertisement_handlers_router)

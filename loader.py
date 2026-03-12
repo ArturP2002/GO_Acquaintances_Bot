@@ -147,6 +147,7 @@ def setup_scheduled_tasks(scheduler_instance: AsyncIOScheduler):
     from tasks.cleanup_moderation_queue import cleanup_moderation_queue_task
     from tasks.profile_boost_rotation import profile_boost_rotation_task
     from tasks.freeze_inactive_profiles import freeze_inactive_profiles_task
+    from tasks.send_advertisements import send_advertisements_task
     from services.notification_service import NotificationService
     from loader import get_bot
     
@@ -241,6 +242,16 @@ def setup_scheduled_tasks(scheduler_instance: AsyncIOScheduler):
         replace_existing=True
     )
     logger.info("Задача заморозки неактивных анкет настроена (ежедневно в 03:00)")
+    
+    # Отправка рекламы - каждую минуту
+    scheduler_instance.add_job(
+        send_advertisements_task,
+        'interval',
+        minutes=1,
+        id='send_advertisements',
+        replace_existing=True
+    )
+    logger.info("Задача отправки рекламных кампаний настроена (каждую минуту)")
     
     logger.info("Все периодические задачи успешно настроены")
 

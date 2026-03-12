@@ -1,6 +1,6 @@
 """
 Inline клавиатуры для админ-панели.
-Кнопки для управления пользователями, настройками, жалобами и администраторами.
+Кнопки для управления пользователями, настройками, жалобами, рекламой и администраторами.
 """
 from typing import Optional
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -52,6 +52,14 @@ def get_admin_main_keyboard(user: Optional[User] = None) -> InlineKeyboardMarkup
         InlineKeyboardButton(
             text="🚨 Жалобы",
             callback_data="admin:complaints"
+        )
+    ])
+    
+    # Реклама - временно доступна всем администраторам (для тестирования)
+    buttons.append([
+        InlineKeyboardButton(
+            text="📢 Реклама",
+            callback_data="admin:advertisements"
         )
     ])
     
@@ -312,4 +320,168 @@ def get_confirm_keyboard(action: str, target_id: int) -> InlineKeyboardMarkup:
         ]
     ])
     
+    return keyboard
+
+
+def get_advertisements_keyboard() -> InlineKeyboardMarkup:
+    """
+    Создает клавиатуру для управления рекламными кампаниями.
+    
+    Returns:
+        InlineKeyboardMarkup с кнопками управления рекламой
+    """
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="➕ Создать рекламу",
+                callback_data="admin:advertisement:create"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="◀️ Назад",
+                callback_data="admin:main"
+            )
+        ]
+    ])
+    
+    return keyboard
+
+
+def get_advertisement_actions_keyboard(campaign_id: int, is_active: bool = True) -> InlineKeyboardMarkup:
+    """
+    Создает клавиатуру действий с конкретной рекламной кампанией.
+    
+    Args:
+        campaign_id: ID рекламной кампании
+        is_active: Активна ли кампания (для отображения правильной иконки)
+        
+    Returns:
+        InlineKeyboardMarkup с кнопками действий
+    """
+    buttons = []
+    
+    # Редактирование текста
+    buttons.append([
+        InlineKeyboardButton(
+            text="✏️ Редактировать текст",
+            callback_data=f"admin:advertisement:edit_text:{campaign_id}"
+        )
+    ])
+    
+    # Медиа
+    buttons.append([
+        InlineKeyboardButton(
+            text="🖼️ Медиа",
+            callback_data=f"admin:advertisement:media:{campaign_id}"
+        )
+    ])
+    
+    # Время отправки
+    buttons.append([
+        InlineKeyboardButton(
+            text="⏰ Время",
+            callback_data=f"admin:advertisement:time:{campaign_id}"
+        )
+    ])
+    
+    # Включение/выключение
+    toggle_text = "⏸️ Выключить" if is_active else "▶️ Включить"
+    buttons.append([
+        InlineKeyboardButton(
+            text=toggle_text,
+            callback_data=f"admin:advertisement:toggle:{campaign_id}"
+        )
+    ])
+    
+    # Удаление
+    buttons.append([
+        InlineKeyboardButton(
+            text="🗑️ Удалить",
+            callback_data=f"admin:advertisement:delete:{campaign_id}"
+        )
+    ])
+    
+    # Назад
+    buttons.append([
+        InlineKeyboardButton(
+            text="◀️ Назад",
+            callback_data="admin:advertisements"
+        )
+    ])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    return keyboard
+
+
+def get_advertisement_media_keyboard(campaign_id: int, media_list: list) -> InlineKeyboardMarkup:
+    """
+    Создает клавиатуру для управления медиа рекламной кампании.
+    
+    Args:
+        campaign_id: ID рекламной кампании
+        media_list: Список медиа объектов с полями id и order
+        
+    Returns:
+        InlineKeyboardMarkup с кнопками управления медиа
+    """
+    buttons = []
+    
+    # Сортируем медиа по порядку
+    sorted_media = sorted(media_list, key=lambda x: getattr(x, 'order', 0))
+    
+    # Кнопки для каждого медиа
+    for idx, media in enumerate(sorted_media):
+        media_id = getattr(media, 'id', None)
+        if media_id is None:
+            continue
+            
+        media_buttons = []
+        
+        # Кнопка "Вверх" (если не первое)
+        if idx > 0:
+            media_buttons.append(
+                InlineKeyboardButton(
+                    text="⬆️ Вверх",
+                    callback_data=f"admin:advertisement:media_up:{campaign_id}:{media_id}"
+                )
+            )
+        
+        # Кнопка "Вниз" (если не последнее)
+        if idx < len(sorted_media) - 1:
+            media_buttons.append(
+                InlineKeyboardButton(
+                    text="⬇️ Вниз",
+                    callback_data=f"admin:advertisement:media_down:{campaign_id}:{media_id}"
+                )
+            )
+        
+        # Кнопка "Удалить"
+        media_buttons.append(
+            InlineKeyboardButton(
+                text="🗑️ Удалить",
+                callback_data=f"admin:advertisement:media_delete:{campaign_id}:{media_id}"
+            )
+        )
+        
+        if media_buttons:
+            buttons.append(media_buttons)
+    
+    # Кнопка добавления медиа
+    buttons.append([
+        InlineKeyboardButton(
+            text="➕ Добавить медиа",
+            callback_data=f"admin:advertisement:media_add:{campaign_id}"
+        )
+    ])
+    
+    # Кнопка "Назад"
+    buttons.append([
+        InlineKeyboardButton(
+            text="◀️ Назад",
+            callback_data=f"admin:advertisement:actions:{campaign_id}"
+        )
+    ])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard

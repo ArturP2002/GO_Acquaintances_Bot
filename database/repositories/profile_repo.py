@@ -5,6 +5,8 @@
 from typing import Optional, List
 from datetime import datetime
 
+from peewee import fn
+
 from database.models.profile import Profile, ProfileMedia
 from database.models.like import ProfileView, ProfileHistory
 from database.models.user import User
@@ -227,11 +229,29 @@ class ProfileRepository:
         ]
     
     @staticmethod
+    def get_last_view_time(user_id: int) -> Optional[datetime]:
+        """
+        Получает время последнего просмотра анкеты пользователем.
+        
+        Args:
+            user_id: ID пользователя
+            
+        Returns:
+            Время последнего просмотра (MAX(ProfileView.created_at)) или None если просмотров нет
+        """
+        result = ProfileView.select(fn.MAX(ProfileView.created_at)).where(
+            ProfileView.viewer_id == user_id
+        ).scalar()
+        
+        return result
+    
+    @staticmethod
     def get_candidates_for_user(user_id: int, min_age: int, max_age: int, 
-                                limit: int = 100) -> List[Profile]:
+                                limit: int = 100, include_viewed: bool = False,
+                                new_after: Optional[datetime] = None) -> List[Profile]:
         """
         Получает кандидатов для показа пользователю.
-        Исключает: себя, просмотренные, лайкнутые, забаненных, неподтвержденных.
+        Исключает: себя, просмотренные (если include_viewed=False), лайкнутые, забаненных, неподтвержденных.
         Если включен фильтр по полу, показывает только противоположный пол.
         Если у пользователя указан город, показывает только кандидатов из того же города.
         
@@ -240,6 +260,8 @@ class ProfileRepository:
             min_age: Минимальный возраст
             max_age: Максимальный возраст
             limit: Максимальное количество кандидатов
+            include_viewed: Если True, включает просмотренные анкеты в результат
+            new_after: Если указан, фильтрует анкеты где updated_at или created_at > new_after
             
         Returns:
             Список профилей-кандидатов
@@ -267,9 +289,18 @@ class ProfileRepository:
             (Profile.age >= min_age),
             (Profile.age <= max_age),
             (Profile.user_id != user_id),
-            ~(Profile.id.in_(viewed_profiles)),
             ~(Profile.user_id.in_(liked_profiles))
         ]
+        
+        # Условно применяем фильтр просмотренных анкет
+        if not include_viewed:
+            query_conditions.append(~(Profile.id.in_(viewed_profiles)))
+        
+        # Добавляем фильтр по времени для новых анкет
+        if new_after is not None:
+            query_conditions.append(
+                (Profile.updated_at > new_after) | (Profile.created_at > new_after)
+            )
         
         # Добавляем фильтр по городу, если у пользователя указан город
         if user_profile and user_profile.city:

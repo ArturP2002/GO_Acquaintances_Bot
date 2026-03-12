@@ -11,6 +11,7 @@ from database.repositories.moderation_repo import ModerationRepository
 from database.repositories.boost_repo import BoostRepository
 from database.repositories.settings_repo import SettingsRepository
 from database.repositories.referral_repo import ReferralRepository
+from database.repositories.advertisement_repo import AdvertisementRepository
 
 __all__ = [
     "UserRepository",
@@ -22,4 +23,5 @@ __all__ = [
     "BoostRepository",
     "SettingsRepository",
     "ReferralRepository",
+    "AdvertisementRepository",
 ]
