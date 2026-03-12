@@ -21,7 +21,8 @@ from handlers.admin import admin_router
 from database.models import (
     User, Profile, ProfileMedia, Like, ProfileView, ProfileHistory,
     Match, Complaint, ComplaintAction, ModerationQueue, ModerationAction,
-    Referral, Boost, Settings, AdminUser
+    Referral, Boost, Settings, AdminUser,
+    AdvertisementCampaign, AdvertisementMedia
 )
 
 # Настройка логирования
@@ -66,7 +67,8 @@ def init_database_tables(database):
         tables = [
             User, Profile, ProfileMedia, Like, ProfileView, ProfileHistory,
             Match, Complaint, ComplaintAction, ModerationQueue, ModerationAction,
-            Referral, Boost, Settings, AdminUser
+            Referral, Boost, Settings, AdminUser,
+            AdvertisementCampaign, AdvertisementMedia
         ]
         
         # Создаем таблицы (safe=True предотвращает ошибки, если таблицы уже существуют)
@@ -154,6 +156,38 @@ def _apply_migrations(database):
                     # Это критическая ошибка, но не прерываем выполнение
         else:
             logger.info("✅ Колонка filter_by_opposite_gender уже существует в таблице profiles")
+        
+        # Миграция: проверяем и создаем таблицы для рекламных кампаний, если они отсутствуют
+        try:
+            # Проверяем существование таблицы advertisement_campaigns
+            cursor = database.execute_sql(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='advertisement_campaigns'"
+            )
+            campaigns_table_exists = cursor.fetchone() is not None
+            
+            if not campaigns_table_exists:
+                logger.info("⚠️ Таблица advertisement_campaigns отсутствует. Создание...")
+                AdvertisementCampaign.create_table(safe=True)
+                logger.info("✅ Таблица advertisement_campaigns успешно создана")
+            else:
+                logger.debug("✅ Таблица advertisement_campaigns уже существует")
+            
+            # Проверяем существование таблицы advertisement_media
+            cursor = database.execute_sql(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='advertisement_media'"
+            )
+            media_table_exists = cursor.fetchone() is not None
+            
+            if not media_table_exists:
+                logger.info("⚠️ Таблица advertisement_media отсутствует. Создание...")
+                AdvertisementMedia.create_table(safe=True)
+                logger.info("✅ Таблица advertisement_media успешно создана")
+            else:
+                logger.debug("✅ Таблица advertisement_media уже существует")
+                
+        except Exception as e:
+            logger.error(f"❌ ОШИБКА при создании таблиц рекламных кампаний: {e}", exc_info=True)
+            # Не прерываем выполнение, но логируем как ошибку
         
     except Exception as e:
         logger.error(f"❌ КРИТИЧЕСКАЯ ОШИБКА при применении миграций: {e}", exc_info=True)

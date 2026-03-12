@@ -14,7 +14,8 @@ from admin_panel.mini_app.backend.routers.settings import test_profiles_router
 from database.models import (
     User, Profile, ProfileMedia, Like, ProfileView, ProfileHistory,
     Match, Complaint, ComplaintAction, ModerationQueue, ModerationAction,
-    Referral, Boost, Settings, AdminUser
+    Referral, Boost, Settings, AdminUser,
+    AdvertisementCampaign, AdvertisementMedia
 )
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,8 @@ def init_database_tables(database):
         tables = [
             User, Profile, ProfileMedia, Like, ProfileView, ProfileHistory,
             Match, Complaint, ComplaintAction, ModerationQueue, ModerationAction,
-            Referral, Boost, Settings, AdminUser
+            Referral, Boost, Settings, AdminUser,
+            AdvertisementCampaign, AdvertisementMedia
         ]
         
         # Создаем таблицы (safe=True предотвращает ошибки, если таблицы уже существуют)
