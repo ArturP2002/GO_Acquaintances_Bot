@@ -55,13 +55,14 @@ def get_admin_main_keyboard(user: Optional[User] = None) -> InlineKeyboardMarkup
         )
     ])
     
-    # Реклама - временно доступна всем администраторам (для тестирования)
-    buttons.append([
-        InlineKeyboardButton(
-            text="📢 Реклама",
-            callback_data="admin:advertisements"
-        )
-    ])
+    # Реклама - только owner
+    if user is None or can_manage_admins(user):
+        buttons.append([
+            InlineKeyboardButton(
+                text="📢 Реклама",
+                callback_data="admin:advertisements"
+            )
+        ])
     
     # Администраторы - только owner
     if user is None or can_manage_admins(user):

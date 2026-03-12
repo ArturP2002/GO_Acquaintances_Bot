@@ -34,7 +34,7 @@ class AdvertisementService:
     
     async def send_advertisement_to_all_users(self, campaign_id: int) -> int:
         """
-        Отправляет рекламную кампанию только owner'ам.
+        Отправляет рекламную кампанию всем активным пользователям.
         
         Логика отправки:
         - Если есть медиа:
@@ -59,15 +59,10 @@ class AdvertisementService:
             # Получаем все медиа кампании (отсортированные по order)
             media_list = self.advertisement_repo.get_media_by_campaign(campaign_id)
             
-            # Получаем всех owner'ов (пользователей с ролью OWNER)
-            from database.models.settings import AdminUser
-            from core.constants import AdminRole
-            
-            owner_users = list(
+            # Получаем всех активных пользователей (is_banned=False, is_active=True)
+            active_users = list(
                 User.select()
-                .join(AdminUser)
                 .where(
-                    (AdminUser.role == AdminRole.OWNER) &
                     (User.is_banned == False) &
                     (User.is_active == True)
                 )
@@ -75,14 +70,14 @@ class AdvertisementService:
             
             logger.info(
                 f"Начало отправки рекламной кампании {campaign_id} "
-                f"({len(media_list)} медиа) для {len(owner_users)} owner'ов"
+                f"({len(media_list)} медиа) для {len(active_users)} активных пользователей"
             )
             
             sent_count = 0
             failed_count = 0
             
-            # Отправляем рекламу каждому owner'у
-            for user in owner_users:
+            # Отправляем рекламу каждому активному пользователю
+            for user in active_users:
                 try:
                     success = await self._send_advertisement_to_user(
                         user.telegram_id,
@@ -112,7 +107,7 @@ class AdvertisementService:
             
             logger.info(
                 f"Отправка рекламной кампании {campaign_id} завершена: "
-                f"успешно отправлено {sent_count} owner'ам, ошибок {failed_count}"
+                f"успешно {sent_count}, ошибок {failed_count}"
             )
             
             return sent_count

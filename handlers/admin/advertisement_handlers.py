@@ -12,6 +12,7 @@ from aiogram.filters import StateFilter
 from aiogram.exceptions import TelegramBadRequest
 
 from filters.is_admin import IsAdmin
+from core.constants import AdminRole
 from database.repositories.user_repo import UserRepository
 from database.repositories.advertisement_repo import AdvertisementRepository
 from keyboards.inline.admin_keyboard import (
@@ -109,12 +110,12 @@ def format_campaigns_list(campaigns) -> str:
     return text
 
 
-@router.callback_query(F.data == "admin:advertisements", IsAdmin())
+@router.callback_query(F.data == "admin:advertisements", IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_advertisements_menu(callback: CallbackQuery):
     """
     Обработчик главного меню рекламы.
     Показывает список всех рекламных кампаний.
-    Доступ: все администраторы (временно для тестирования).
+    Доступ: только owner.
     """
     try:
         campaigns = advertisement_repo.get_all()
@@ -173,7 +174,7 @@ async def admin_advertisements_menu(callback: CallbackQuery):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.callback_query(F.data == "admin:advertisement:create", IsAdmin())
+@router.callback_query(F.data == "admin:advertisement:create", IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_create_advertisement(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик начала создания новой рекламной кампании.
@@ -190,7 +191,7 @@ async def admin_create_advertisement(callback: CallbackQuery, state: FSMContext)
     await callback.answer()
 
 
-@router.message(StateFilter(AdvertisementState.waiting_for_text), IsAdmin())
+@router.message(StateFilter(AdvertisementState.waiting_for_text), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_handle_advertisement_text(message: Message, state: FSMContext):
     """
     Обработчик ввода текста рекламы.
@@ -217,7 +218,7 @@ async def admin_handle_advertisement_text(message: Message, state: FSMContext):
     await state.set_state(AdvertisementState.waiting_for_media)
 
 
-@router.message(StateFilter(AdvertisementState.waiting_for_media), IsAdmin(), F.photo)
+@router.message(StateFilter(AdvertisementState.waiting_for_media), IsAdmin(role=AdminRole.OWNER, exact=True), F.photo)
 async def admin_handle_photo(message: Message, state: FSMContext):
     """
     Обработчик загрузки фото для новой рекламной кампании.
@@ -244,7 +245,7 @@ async def admin_handle_photo(message: Message, state: FSMContext):
     )
 
 
-@router.message(StateFilter(AdvertisementState.waiting_for_media), IsAdmin(), F.video)
+@router.message(StateFilter(AdvertisementState.waiting_for_media), IsAdmin(role=AdminRole.OWNER, exact=True), F.video)
 async def admin_handle_video(message: Message, state: FSMContext):
     """
     Обработчик загрузки видео для новой рекламной кампании.
@@ -270,7 +271,7 @@ async def admin_handle_video(message: Message, state: FSMContext):
     )
 
 
-@router.message(StateFilter(AdvertisementState.waiting_for_media), IsAdmin())
+@router.message(StateFilter(AdvertisementState.waiting_for_media), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_handle_media_next(message: Message, state: FSMContext):
     """
     Обработчик перехода к следующему шагу после добавления медиа.
@@ -302,7 +303,7 @@ async def admin_handle_media_next(message: Message, state: FSMContext):
         )
 
 
-@router.message(StateFilter(AdvertisementState.waiting_for_time), IsAdmin())
+@router.message(StateFilter(AdvertisementState.waiting_for_time), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_set_advertisement_time(message: Message, state: FSMContext):
     """
     Обработчик установки времени отправки рекламы.
@@ -398,7 +399,7 @@ async def admin_set_advertisement_time(message: Message, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:actions:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:actions:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_advertisement_actions(callback: CallbackQuery):
     """
     Обработчик просмотра действий с конкретной рекламной кампанией.
@@ -436,7 +437,7 @@ async def admin_advertisement_actions(callback: CallbackQuery):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:edit_text:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:edit_text:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_edit_advertisement_text(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик начала редактирования текста рекламной кампании.
@@ -468,7 +469,7 @@ async def admin_edit_advertisement_text(callback: CallbackQuery, state: FSMConte
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.message(StateFilter(AdvertisementState.editing_text), IsAdmin())
+@router.message(StateFilter(AdvertisementState.editing_text), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_save_advertisement_text(message: Message, state: FSMContext):
     """
     Обработчик сохранения нового текста рекламной кампании.
@@ -505,7 +506,7 @@ async def admin_save_advertisement_text(message: Message, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:time:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:time:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_set_advertisement_time_callback(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик установки времени отправки рекламной кампании.
@@ -537,7 +538,7 @@ async def admin_set_advertisement_time_callback(callback: CallbackQuery, state: 
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.message(StateFilter(AdvertisementState.waiting_for_time), IsAdmin())
+@router.message(StateFilter(AdvertisementState.waiting_for_time), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_save_advertisement_time(message: Message, state: FSMContext):
     """
     Обработчик сохранения времени отправки (для редактирования существующей кампании).
@@ -585,7 +586,7 @@ async def admin_save_advertisement_time(message: Message, state: FSMContext):
     await state.clear()
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:toggle:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:toggle:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_toggle_advertisement(callback: CallbackQuery):
     """
     Обработчик включения/выключения рекламной кампании.
@@ -625,7 +626,7 @@ async def admin_toggle_advertisement(callback: CallbackQuery):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:delete:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:delete:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_delete_advertisement(callback: CallbackQuery):
     """
     Обработчик удаления рекламной кампании.
@@ -699,7 +700,7 @@ async def admin_delete_advertisement(callback: CallbackQuery):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:media:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:media:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_view_media(callback: CallbackQuery):
     """
     Обработчик просмотра медиа рекламной кампании.
@@ -746,7 +747,7 @@ async def admin_view_media(callback: CallbackQuery):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:media_add:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:media_add:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_add_media(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик начала добавления медиа к существующей кампании.
@@ -781,7 +782,7 @@ async def admin_add_media(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.message(StateFilter(AdvertisementState.adding_media), IsAdmin(), F.photo)
+@router.message(StateFilter(AdvertisementState.adding_media), IsAdmin(role=AdminRole.OWNER, exact=True), F.photo)
 async def admin_handle_add_photo(message: Message, state: FSMContext):
     """
     Обработчик добавления фото к существующей кампании.
@@ -825,7 +826,7 @@ async def admin_handle_add_photo(message: Message, state: FSMContext):
         await state.clear()
 
 
-@router.message(StateFilter(AdvertisementState.adding_media), IsAdmin(), F.video)
+@router.message(StateFilter(AdvertisementState.adding_media), IsAdmin(role=AdminRole.OWNER, exact=True), F.video)
 async def admin_handle_add_video(message: Message, state: FSMContext):
     """
     Обработчик добавления видео к существующей кампании.
@@ -868,7 +869,7 @@ async def admin_handle_add_video(message: Message, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:media_delete:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:media_delete:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_delete_media(callback: CallbackQuery):
     """
     Обработчик удаления медиа из рекламной кампании.
@@ -926,7 +927,7 @@ async def admin_delete_media(callback: CallbackQuery):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:media_up:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:media_up:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_reorder_media_up(callback: CallbackQuery):
     """
     Обработчик перемещения медиа вверх (уменьшение порядка).
@@ -994,7 +995,7 @@ async def admin_reorder_media_up(callback: CallbackQuery):
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 
-@router.callback_query(F.data.startswith("admin:advertisement:media_down:"), IsAdmin())
+@router.callback_query(F.data.startswith("admin:advertisement:media_down:"), IsAdmin(role=AdminRole.OWNER, exact=True))
 async def admin_reorder_media_down(callback: CallbackQuery):
     """
     Обработчик перемещения медиа вниз (увеличение порядка).

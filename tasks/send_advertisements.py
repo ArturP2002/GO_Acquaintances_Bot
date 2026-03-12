@@ -72,9 +72,9 @@ async def send_advertisements_task():
                         skipped_count += 1
                         continue
                 
-                # Отправляем рекламу owner'ам
+                # Отправляем рекламу всем активным пользователям
                 logger.info(
-                    f"Отправка рекламной кампании {campaign.id} owner'ам "
+                    f"Отправка рекламной кампании {campaign.id} "
                     f"(время: {campaign.send_time}, текст: {bool(campaign.text)})"
                 )
                 
@@ -91,7 +91,7 @@ async def send_advertisements_task():
                 else:
                     logger.warning(
                         f"Кампания {campaign.id} не была отправлена "
-                        "(возможно, нет owner'ов или произошла ошибка)"
+                        "(возможно, нет активных пользователей или произошла ошибка)"
                     )
                     skipped_count += 1
                     
