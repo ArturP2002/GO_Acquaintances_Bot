@@ -306,9 +306,11 @@ async def admin_handle_media_next(message: Message, state: FSMContext):
 async def admin_set_advertisement_time(message: Message, state: FSMContext):
     """
     Обработчик установки времени отправки рекламы.
-    Создает рекламную кампанию после получения времени.
+    Обрабатывает как создание новой кампании, так и редактирование существующей.
     """
-    user = user_repo.get_by_telegram_id(message.from_user.id)
+    # Получаем данные из состояния
+    data = await state.get_data()
+    is_editing = data.get("is_editing", False)
     
     # Проверяем формат времени (ЧЧ:ММ)
     time_pattern = re.compile(r'^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$')
@@ -320,8 +322,34 @@ async def admin_set_advertisement_time(message: Message, state: FSMContext):
         )
         return
     
+    # Если это редактирование существующей кампании
+    if is_editing:
+        campaign_id = data.get("campaign_id")
+        
+        if not campaign_id:
+            await message.answer("❌ Ошибка: ID кампании не найден")
+            await state.clear()
+            return
+        
+        # Обновляем время
+        success = advertisement_repo.update(campaign_id, send_time=send_time)
+        
+        if success:
+            await message.answer(
+                f"✅ Время отправки кампании #{campaign_id} обновлено!\n\n"
+                f"Новое время: {send_time}"
+            )
+            logger.info(f"Администратор {message.from_user.id} обновил время кампании #{campaign_id}")
+        else:
+            await message.answer("❌ Ошибка при обновлении времени")
+        
+        await state.clear()
+        return
+    
+    # Создание новой кампании
+    user = user_repo.get_by_telegram_id(message.from_user.id)
+    
     # Получаем данные из состояния
-    data = await state.get_data()
     text = data.get("text")
     media_list = data.get("media_list", [])
     
@@ -513,45 +541,48 @@ async def admin_set_advertisement_time_callback(callback: CallbackQuery, state: 
 async def admin_save_advertisement_time(message: Message, state: FSMContext):
     """
     Обработчик сохранения времени отправки (для редактирования существующей кампании).
+    Этот обработчик должен быть зарегистрирован ПОСЛЕ admin_set_advertisement_time,
+    чтобы обрабатывать редактирование, если первый обработчик не обработал сообщение.
     """
     data = await state.get_data()
     is_editing = data.get("is_editing", False)
     
-    if is_editing:
-        # Редактирование существующей кампании
-        campaign_id = data.get("campaign_id")
-        
-        if not campaign_id:
-            await message.answer("❌ Ошибка: ID кампании не найден")
-            await state.clear()
-            return
-        
-        # Проверяем формат времени
-        time_pattern = re.compile(r'^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$')
-        send_time = message.text.strip()
-        
-        if not time_pattern.match(send_time):
-            await message.answer(
-                "❌ Неверный формат времени. Используйте формат ЧЧ:ММ (например, 14:30)"
-            )
-            return
-        
-        # Обновляем время
-        success = advertisement_repo.update(campaign_id, send_time=send_time)
-        
-        if success:
-            await message.answer(
-                f"✅ Время отправки кампании #{campaign_id} обновлено!\n\n"
-                f"Новое время: {send_time}"
-            )
-            logger.info(f"Администратор {message.from_user.id} обновил время кампании #{campaign_id}")
-        else:
-            await message.answer("❌ Ошибка при обновлении времени")
-        
+    # Если это не редактирование, значит это создание новой кампании,
+    # и оно должно было обработаться в admin_set_advertisement_time
+    if not is_editing:
+        return
+    
+    # Редактирование существующей кампании
+    campaign_id = data.get("campaign_id")
+    
+    if not campaign_id:
+        await message.answer("❌ Ошибка: ID кампании не найден")
         await state.clear()
+        return
+    
+    # Проверяем формат времени
+    time_pattern = re.compile(r'^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$')
+    send_time = message.text.strip()
+    
+    if not time_pattern.match(send_time):
+        await message.answer(
+            "❌ Неверный формат времени. Используйте формат ЧЧ:ММ (например, 14:30)"
+        )
+        return
+    
+    # Обновляем время
+    success = advertisement_repo.update(campaign_id, send_time=send_time)
+    
+    if success:
+        await message.answer(
+            f"✅ Время отправки кампании #{campaign_id} обновлено!\n\n"
+            f"Новое время: {send_time}"
+        )
+        logger.info(f"Администратор {message.from_user.id} обновил время кампании #{campaign_id}")
     else:
-        # Создание новой кампании (уже обработано в admin_set_advertisement_time)
-        pass
+        await message.answer("❌ Ошибка при обновлении времени")
+    
+    await state.clear()
 
 
 @router.callback_query(F.data.startswith("admin:advertisement:toggle:"), IsAdmin())
