@@ -57,9 +57,17 @@ async def show_next_profile_message(message: Message, user_id: int, state: FSMCo
             max_age=max_age
         )
         
-        # Если анкет нет (включая просмотренные)
+        # Если анкет нет (включая просмотренные) - все анкеты просмотрены дважды
         if not next_profile:
             await state.clear()
+            # Отправляем сообщение пользователю, что все анкеты закончились
+            from keyboards.reply.main_menu import get_main_menu_keyboard
+            await message.answer(
+                "😔 К сожалению, вы просмотрели все доступные анкеты.\n\n"
+                "Попробуйте позже или измените настройки поиска в вашем профиле.",
+                reply_markup=get_main_menu_keyboard()
+            )
+            logger.info(f"Пользователь {user_id} просмотрел все доступные анкеты (включая повторный круг)")
             return
         
         # Получаем фото профиля
@@ -157,6 +165,13 @@ async def show_next_profile(callback: CallbackQuery, user_id: int):
     
     # Вызываем основную функцию с message из callback
     await show_next_profile_message(callback.message, user_id, state)
+    
+    # Отвечаем на callback, чтобы убрать индикатор загрузки
+    try:
+        await callback.answer()
+    except Exception:
+        # Если callback уже был обработан, игнорируем ошибку
+        pass
 
 
 async def show_previous_profile_message(message: Message, user_id: int, state: FSMContext):
