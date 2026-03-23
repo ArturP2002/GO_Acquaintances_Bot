@@ -7,7 +7,7 @@ from datetime import datetime
 
 from database.models.profile import Profile
 from database.models.user import User
-from database.models.like import ProfileView
+from database.models.like import ProfileView, ProfileHistory
 from database.repositories.profile_repo import ProfileRepository
 from database.repositories.boost_repo import BoostRepository
 from database.repositories.like_repo import LikeRepository
@@ -160,69 +160,86 @@ class MatchingService:
         profiles_viewed_count = ProfileView.select().where(
             ProfileView.viewer_id == user_id
         ).count()
-        
+
+        # Набор просмотренных профилей нужен, чтобы фильтровать кэшированных кандидатов
+        # (иначе возможны повторы после истечения unviewed-кандидатов в кэше).
+        viewed_profile_ids = {
+            pv.profile_id
+            for pv in ProfileView.select(ProfileView.profile_id).where(ProfileView.viewer_id == user_id)
+        }
+
         # 3. Проверка, нужно ли показать буст-анкету (каждые N анкет)
-        # Если profiles_viewed_count == 0, это первая анкета, не показываем буст
-        # Если profiles_viewed_count > 0 и (profiles_viewed_count % boost_frequency == 0), показываем буст
+        # Если profiles_viewed_count == 0, это первая анкета, не показываем буст.
+        # Если profiles_viewed_count > 0 и (profiles_viewed_count % boost_frequency == 0), показываем буст.
         should_show_boost = (
-            profiles_viewed_count > 0 and 
+            profiles_viewed_count > 0 and
             profiles_viewed_count % boost_frequency == 0
         )
-        
-        # 4. Получение непросмотренных кандидатов
-        candidates = MatchingService.get_candidates(user_id, min_age, max_age)
-        
-        # 5. Если непросмотренных нет - получаем просмотренные
+
+        # 4. Получение кандидатов (может быть из кэша и быть немного устаревшим).
+        # Мы дополнительно исключаем уже просмотренные.
+        candidates = MatchingService.get_candidates(user_id, min_age, max_age) or []
+        candidates = [p for p in candidates if p.id not in viewed_profile_ids]
+
+        # 5. Если по кэшу кандидаты закончились, убеждаемся, что это действительно конец
+        # (иначе можно сброситься слишком рано и начать показывать с повторами последней анкеты).
         if not candidates:
-            # Получаем время последнего просмотра
-            last_view_time = ProfileRepository.get_last_view_time(user_id)
-            
-            # Сначала пытаемся получить новые просмотренные анкеты
-            if last_view_time is not None:
-                candidates = ProfileRepository.get_candidates_for_user(
-                    user_id=user_id,
-                    min_age=min_age,
-                    max_age=max_age,
-                    limit=100,
-                    include_viewed=True,
-                    new_after=last_view_time
-                )
-            
-            # Если новых просмотренных нет - получаем все просмотренные
-            if not candidates:
-                candidates = ProfileRepository.get_candidates_for_user(
-                    user_id=user_id,
-                    min_age=min_age,
-                    max_age=max_age,
-                    limit=100,
-                    include_viewed=True
-                )
-        
-        # 6. Если нужно показать буст - фильтрация кандидатов с boost > 0
-        if should_show_boost:
+            candidates = ProfileRepository.get_candidates_for_user(
+                user_id=user_id,
+                min_age=min_age,
+                max_age=max_age,
+                limit=100,
+                include_viewed=False,
+            )
+
+        # 6. Если и в БД непросмотренных нет — начинается новый круг.
+        if not candidates:
+            # Сбрасываем историю просмотров именно этого пользователя.
+            ProfileView.delete().where(ProfileView.viewer_id == user_id).execute()
+            ProfileHistory.delete().where(ProfileHistory.user_id == user_id).execute()
+
+            # Инвалидируем кэш, чтобы следующий запрос вернул корректных кандидатов.
+            invalidate_user_cache(user_id)
+
+            # Пересчитываем счетчик и набор просмотренных.
+            profiles_viewed_count = 0
+            viewed_profile_ids = set()
+            should_show_boost = False
+
+            candidates = ProfileRepository.get_candidates_for_user(
+                user_id=user_id,
+                min_age=min_age,
+                max_age=max_age,
+                limit=100,
+                include_viewed=False,
+            )
+
+        # 7. Если нужно показать буст - фильтрация кандидатов с boost > 0
+        if should_show_boost and candidates:
             boosted_candidates = []
             for profile in candidates:
                 boost_value = BoostRepository.get_total_boost_value(profile.user_id)
                 if boost_value > 0:
                     boosted_candidates.append(profile)
-            
-            # Если есть буст-кандидаты, используем их
+
+            # Если есть буст-кандидаты, используем их.
+            # Если буст-кандидатов нет, показываем обычные.
             if boosted_candidates:
                 candidates = boosted_candidates
         
-        # 7. Если кандидатов нет - возврат None
+        # 8. Если кандидатов нет - возврат None
         if not candidates:
             return None
-        
-        # 8. Расчет score для каждого кандидата
+
+        # 9. Расчет score для каждого кандидата
         candidates_with_scores = []
         for profile in candidates:
             score = MatchingService.calculate_score(profile)
             candidates_with_scores.append((profile, score))
-        
-        # 9. Сортировка по score (по убыванию)
+
+        # 10. Сортировка по score (по убыванию)
         candidates_with_scores.sort(key=lambda x: x[1], reverse=True)
-        
-        # 10. Возврат профиля с наивысшим score
+
+        # 11. Возврат профиля с наивысшим score
         best_profile, _ = candidates_with_scores[0]
         return best_profile

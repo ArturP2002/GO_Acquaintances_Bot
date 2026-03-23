@@ -870,7 +870,7 @@ async def process_edit_gender(message: Message, state: FSMContext, user=None):
     
     profile = profile_repo.get_by_user_id(user.id)
     profile_repo.update(profile.id, gender=gender_text)
-    await message.answer(f"✅ Пол изменен на: {gender_text}", reply_markup=ReplyKeyboardRemove())
+    await message.answer(f"✅ Пол изменен на: {gender_text}")
     await state.clear()
     logger.info(f"Пользователь {user.id} изменил пол на {gender_text}")
 
@@ -887,7 +887,7 @@ async def process_edit_city(message: Message, state: FSMContext, user=None):
     if message.text and message.text.strip() == "/skip":
         profile = profile_repo.get_by_user_id(user.id)
         profile_repo.update(profile.id, city=None)
-        await message.answer("✅ Город удален", reply_markup=ReplyKeyboardRemove())
+        await message.answer("✅ Город удален")
         await state.clear()
         logger.info(f"Пользователь {user.id} удалил город")
         return
@@ -900,7 +900,7 @@ async def process_edit_city(message: Message, state: FSMContext, user=None):
     profile = profile_repo.get_by_user_id(user.id)
     profile_repo.update(profile.id, city=city if city else None)
     city_text = city if city else "удален"
-    await message.answer(f"✅ Город изменен на: {city_text}", reply_markup=ReplyKeyboardRemove())
+    await message.answer(f"✅ Город изменен на: {city_text}")
     await state.clear()
     logger.info(f"Пользователь {user.id} изменил город на {city_text}")
 
@@ -917,7 +917,7 @@ async def process_edit_bio(message: Message, state: FSMContext, user=None):
     if message.text and message.text.strip() == "/skip":
         profile = profile_repo.get_by_user_id(user.id)
         profile_repo.update(profile.id, bio=None)
-        await message.answer("✅ Описание удалено", reply_markup=ReplyKeyboardRemove())
+        await message.answer("✅ Описание удалено")
         await state.clear()
         logger.info(f"Пользователь {user.id} удалил описание")
         return
@@ -1060,7 +1060,7 @@ async def process_edit_bio(message: Message, state: FSMContext, user=None):
         except Exception as e:
             logger.error(f"Ошибка при отправке анкеты админам: {e}", exc_info=True)
     
-    await message.answer(f"✅ Описание изменено", reply_markup=ReplyKeyboardRemove())
+    await message.answer(f"✅ Описание изменено")
     await state.clear()
     logger.info(f"Пользователь {user.id} изменил описание")
 
