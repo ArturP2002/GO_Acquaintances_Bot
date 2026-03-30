@@ -59,13 +59,12 @@ def _get_terms_accept_keyboard() -> InlineKeyboardMarkup:
 def _build_terms_text() -> str:
     terms_url = getattr(config, "TERMS_URL", None)
     terms_href = escape(terms_url, quote=True) if terms_url else "#"
-    agreement_link = f'<a href="{terms_href}">пользовательское соглашение</a>'
+    agreement_link = f'<a href="{terms_href}">пользовательское соглашение.</a>'
 
     return (
         "❗️ Помните, что в интернете люди могут выдавать себя за других.\n\n"
         "Бот не запрашивает личные данные и не идентифицирует пользователей по каким-либо документам.\n\n"
-        "Продолжая, вы принимаете пользовательское соглашение.\n\n"
-        f"пользовательское соглашение - это гиперссылка на документ: {agreement_link}"
+        f"Продолжая, вы принимаете {agreement_link}"
     )
 
 
