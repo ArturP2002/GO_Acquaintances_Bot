@@ -58,6 +58,10 @@ if BaseSettings is not None:
         
         # Mini App
         MINI_APP_URL: Optional[str] = Field("https://b723-37-27-91-108.ngrok-free.app", env="MINI_APP_URL", description="URL для Mini App админ-панели")
+
+        # Юридические документы (для сообщения при первом /start)
+        TERMS_URL: Optional[str] = Field(None, env="TERMS_URL", description="URL пользовательского соглашения")
+        PRIVACY_URL: Optional[str] = Field(None, env="PRIVACY_URL", description="URL политики конфиденциальности")
         
         class Config:
             env_file = ".env"
@@ -110,6 +114,10 @@ else:
             # Mini App
             # По умолчанию для локальной разработки
             self.MINI_APP_URL = os.getenv("MINI_APP_URL") or "https://b723-37-27-91-108.ngrok-free.app"
+
+            # Юридические документы (для сообщения при первом /start)
+            self.TERMS_URL = os.getenv("TERMS_URL")
+            self.PRIVACY_URL = os.getenv("PRIVACY_URL")
 
 
 # Создание глобального экземпляра настроек

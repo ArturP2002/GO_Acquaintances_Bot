@@ -4,6 +4,7 @@
 Для owner показывает админ-панель.
 """
 import logging
+from html import escape
 from aiogram import Router, F
 from aiogram.filters import Command, CommandObject, StateFilter
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -33,6 +34,39 @@ router = Router()
 # Инициализация репозиториев
 user_repo = UserRepository()
 profile_repo = ProfileRepository()
+
+TERMS_ACCEPT_CALLBACK_DATA = "terms:accept"
+
+
+def _terms_accepted_key(telegram_id: int) -> str:
+    """Ключ в таблице settings, хранящий факт согласия пользователя."""
+    return f"terms_accepted_{telegram_id}"
+
+
+def _get_terms_accept_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Принимаю пользовательское соглашение",
+                    callback_data=TERMS_ACCEPT_CALLBACK_DATA,
+                )
+            ]
+        ]
+    )
+
+
+def _build_terms_text() -> str:
+    terms_url = getattr(config, "TERMS_URL", None)
+    terms_href = escape(terms_url, quote=True) if terms_url else "#"
+    agreement_link = f'<a href="{terms_href}">пользовательское соглашение</a>'
+
+    return (
+        "❗️ Помните, что в интернете люди могут выдавать себя за других.\n\n"
+        "Бот не запрашивает личные данные и не идентифицирует пользователей по каким-либо документам.\n\n"
+        "Продолжая, вы принимаете пользовательское соглашение.\n\n"
+        f"пользовательское соглашение - это гиперссылка на документ: {agreement_link}"
+    )
 
 
 @router.message(Command("start"))
@@ -72,6 +106,32 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
     user_role = get_user_role(user)
     is_admin = user_role is not None
     
+    # Проверяем, забанен ли пользователь (только для не-администраторов)
+    if not is_admin and user.is_banned:
+        await message.answer(
+            "🚫 Вы были заблокированы. Обратитесь к администратору."
+        )
+        logger.info(f"Забаненный пользователь {telegram_id} попытался зайти в бот")
+        return
+    
+    # Обработка реферального кода из аргументов команды
+    referral_code = command.args if command and command.args else None
+    
+    # Обрабатываем реферальную ссылку, если есть
+    if referral_code:
+        await process_referral_link_async(message, referral_code, state)
+    
+    # Показываем согласие на оферту/политику конфиденциальности (только при первом /start)
+    terms_accepted = SettingsRepository.get_bool(_terms_accepted_key(telegram_id), default=False)
+    if not terms_accepted:
+        await message.answer(
+            _build_terms_text(),
+            reply_markup=_get_terms_accept_keyboard(),
+            parse_mode="HTML",
+        )
+        logger.info(f"Пользователь {telegram_id} увидел сообщение о согласии (первый /start)")
+        return
+    
     if is_admin:
         # Показываем админ-панель для всех администраторов
         role_emojis = {
@@ -102,21 +162,6 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
         )
         logger.info(f"Администратор {telegram_id} (роль: {user_role}) открыл панель через /start")
         return
-    
-    # Проверяем, забанен ли пользователь (только для не-администраторов)
-    if not is_admin and user.is_banned:
-        await message.answer(
-            "🚫 Вы были заблокированы. Обратитесь к администратору."
-        )
-        logger.info(f"Забаненный пользователь {telegram_id} попытался зайти в бот")
-        return
-    
-    # Обработка реферального кода из аргументов команды
-    referral_code = command.args if command and command.args else None
-    
-    # Обрабатываем реферальную ссылку, если есть
-    if referral_code:
-        await process_referral_link_async(message, referral_code, state)
     
     profile = profile_repo.get_by_user_id(user.id)
     
@@ -155,6 +200,106 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
             reply_markup=get_registration_menu_keyboard()
         )
         logger.info(f"Пользователь {telegram_id} зашел в бот (не зарегистрирован)")
+
+
+@router.callback_query(F.data == TERMS_ACCEPT_CALLBACK_DATA)
+async def handle_terms_accept(callback: CallbackQuery, state: FSMContext, user=None):
+    telegram_id = callback.from_user.id
+
+    # Получаем пользователя из БД, если не пришел из контекста
+    if not user:
+        user = user_repo.get_by_telegram_id(telegram_id)
+        if not user:
+            await callback.answer("❌ Пользователь не найден", show_alert=True)
+            return
+
+    # Фиксируем согласие, чтобы не показывать сообщение повторно
+    SettingsRepository.set_bool(_terms_accepted_key(telegram_id), True)
+
+    # Убираем кнопку согласия (если получится)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    await callback.answer("Спасибо за согласие!")
+
+    # Переходим к стандартному контенту /start
+    user_role = get_user_role(user)
+    is_admin = user_role is not None
+
+    # Проверяем бан (только для не-администраторов)
+    if not is_admin and user.is_banned:
+        await callback.message.answer("🚫 Вы были заблокированы. Обратитесь к администратору.")
+        return
+
+    if is_admin:
+        # Показываем админ-панель для всех администраторов
+        role_emojis = {
+            AdminRole.OWNER: "👑",
+            AdminRole.ADMIN: "🛡️",
+            AdminRole.MODERATOR: "🔨",
+            AdminRole.SUPPORT: "💬",
+        }
+        role_names = {
+            AdminRole.OWNER: "Панель владельца",
+            AdminRole.ADMIN: "Админ-панель",
+            AdminRole.MODERATOR: "Панель модератора",
+            AdminRole.SUPPORT: "Панель поддержки",
+        }
+
+        emoji = role_emojis.get(user_role, "👤")
+        role_name = role_names.get(user_role, "Админ-панель")
+
+        admin_text = (
+            f"{emoji} {role_name}\n\n"
+            f"Роль: {user_role.upper()}\n\n"
+            "Выберите раздел для управления:"
+        )
+
+        await callback.message.answer(
+            admin_text,
+            reply_markup=get_admin_main_keyboard(user),
+        )
+        return
+
+    # Берем реферальный факт из FSM (если был /start с параметрами)
+    fsm_data = await state.get_data()
+    referral_code = fsm_data.get("referral_code")
+
+    profile = profile_repo.get_by_user_id(user.id)
+
+    if profile:
+        if user.is_verified:
+            await callback.message.answer(
+                "👋 Добро пожаловать обратно!\n\n"
+                "Выберите действие из меню:",
+                reply_markup=get_main_menu_keyboard(),
+            )
+        else:
+            await callback.message.answer(
+                "⏳ Ваша анкета находится на модерации.\n\n"
+                "Пожалуйста, дождитесь проверки модератором. "
+                "Вы получите уведомление, когда ваша анкета будет одобрена."
+            )
+    else:
+        # Пользователь не зарегистрирован - предлагаем регистрацию
+        welcome_text = (
+            "👋 Привет! Добро пожаловать в бот знакомств!\n\n"
+            "Здесь ты сможешь найти интересных людей и завести новые знакомства.\n\n"
+            "Для начала работы нужно пройти регистрацию. Следуй инструкциям бота!"
+        )
+
+        # Если есть реферальный код, добавляем информацию
+        if referral_code:
+            welcome_text += (
+                "\n\n🎁 Ты перешел по реферальной ссылке! После регистрации пригласивший получит награду."
+            )
+
+        await callback.message.answer(
+            welcome_text,
+            reply_markup=get_registration_menu_keyboard(),
+        )
 
 
 @router.message(F.text == "👤 Мой профиль")
